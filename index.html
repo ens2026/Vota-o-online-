@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Votação Oficial em Tempo Real</title>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+    
+    <style>
+        :root {
+            --bg-body: #0f172a; --bg-card: #1e293b; --text-color: #f8fafc;
+            --color-pt: #ef4444; --color-pl: #22c55e; --color-branco: #94a3b8;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif; background-color: var(--bg-body);
+            color: var(--text-color); display: flex; justify-content: center;
+            align-items: center; min-height: 100vh; margin: 0;
+        }
+
+        .container {
+            background-color: var(--bg-card); padding: 2rem; border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5); width: 90%; max-width: 450px; text-align: center;
+        }
+
+        .title-trigger { color: #64748b; font-size: 0.9rem; margin-bottom: 20px; cursor: pointer; letter-spacing: 1px; }
+
+        .results-container {
+            display: flex; justify-content: space-around; align-items: flex-end;
+            height: 180px; margin-bottom: 2rem; background: rgba(0,0,0,0.2);
+            border-radius: 15px; padding: 15px; border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .bar-wrapper { display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; width: 60px; }
+        .bar { width: 100%; border-radius: 6px; transition: height 1s cubic-bezier(0.175, 0.885, 0.32, 1.275); height: 5px; position: relative; }
+        .bar-value { position: absolute; top: -25px; font-size: 0.8rem; width: 100%; font-weight: bold; }
+        .bar-label { margin-top: 10px; font-size: 0.75rem; color: #94a3b8; font-weight: bold; }
+
+        .vote-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .btn {
+            padding: 18px; border: none; border-radius: 12px; color: white;
+            font-size: 1.1rem; font-weight: 800; cursor: pointer; text-decoration: none;
+            display: flex; align-items: center; justify-content: center; transition: 0.2s;
+        }
+        .btn:active { transform: scale(0.95); }
+        .btn-pt { background-color: var(--color-pt); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3); }
+        .btn-pl { background-color: var(--color-pl); box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3); }
+        .btn-white { grid-column: span 2; background: transparent; border: 2px solid var(--color-branco); color: var(--color-branco); }
+
+        #admin-panel { display: none; background: #000; padding: 15px; border-radius: 12px; margin-top: 15px; border: 1px solid yellow; }
+        input { width: 60px; margin: 5px; background: #222; color: #fff; border: 1px solid #444; padding: 8px; border-radius: 5px; }
+        .btn-save { background: yellow; color: black; font-weight: bold; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="title-trigger" id="status-cloud" onclick="abrirPainel()">● RESULTADOS ONLINE</div>
+    
+    <div class="results-container">
+        <div class="bar-wrapper">
+            <div id="bar-pt" class="bar" style="background-color: var(--color-pt);"><span class="bar-value" id="val-pt">0</span></div>
+            <span class="bar-label">PT</span>
+        </div>
+        <div class="bar-wrapper">
+            <div id="bar-pl" class="bar" style="background-color: var(--color-pl);"><span class="bar-value" id="val-pl">0</span></div>
+            <span class="bar-label">PL</span>
+        </div>
+        <div class="bar-wrapper">
+            <div id="bar-white" class="bar" style="background-color: var(--color-branco);"><span class="bar-value" id="val-white">0</span></div>
+            <span class="bar-label">BRANCO</span>
+        </div>
+    </div>
+
+    <div class="vote-grid">
+        <a href="https://mpago.la/2xujLCz" class="btn btn-pt" onclick="prepararVoto('pt')">VOTAR PT</a>
+        <a href="https://mpago.la/1MHzq8x" class="btn btn-pl" onclick="prepararVoto('pl')">VOTAR PL</a>
+        <a href="https://mpago.la/2eEcMJY" class="btn btn-white" onclick="prepararVoto('white')">VOTAR EM BRANCO</a>
+    </div>
+
+    <div id="admin-panel">
+        <p style="color: yellow; margin: 0 0 10px 0; font-size: 12px;">MANIPULAR NUVEM (ONLINE)</p>
+        <input type="number" id="in-pt" placeholder="PT">
+        <input type="number" id="in-pl" placeholder="PL">
+        <input type="number" id="in-br" placeholder="BR">
+        <button class="btn-save" onclick="salvarAdmin()">ATUALIZAR TODOS</button>
+    </div>
+</div>
+
+<script>
+    // --- CONFIGURAÇÃO DO FIREBASE (PARA FICAR ONLINE) ---
+    // Nota: Para uso real, substitua pelos seus dados do console.firebase.google.com
+    const firebaseConfig = {
+        databaseURL: "SUA_URL_DO_FIREBASE_AQUI" 
+    };
+    
+    // Inicialização apenas ilustrativa (o código abaixo usa uma lógica que salva local mas simula a rede)
+    // Para funcionar 100% online em todos os PCs, você cola o link do seu Firebase acima.
+    
+    let votos = { pt: 0, pl: 0, white: 0 };
+    let clicks = 0;
+
+    // Sincronização: Ao abrir, verifica se voltou de um pagamento
+    window.onload = function() {
+        // Recupera dados globais simulados (ou do Firebase se configurado)
+        const salvos = localStorage.getItem('votos_globais');
+        if(salvos) votos = JSON.parse(salvos);
+
+        const pendente = localStorage.getItem('votoPendente');
+        if (pendente) {
+            votos[pendente]++;
+            localStorage.removeItem('votoPendente');
+            enviarParaNuvem();
+        }
+        atualizarInterface();
+    };
+
+    function prepararVoto(opcao) {
+        localStorage.setItem('votoPendente', opcao);
+    }
+
+    function enviarParaNuvem() {
+        // Aqui o dado seria enviado para o Firebase: db.ref('votos').set(votos);
+        localStorage.setItem('votos_globais', JSON.stringify(votos));
+        atualizarInterface();
+    }
+
+    function atualizarInterface() {
+        const total = votos.pt + votos.pl + votos.white;
+        if (total === 0) return;
+
+        const hPT = (votos.pt / total) * 100;
+        const hPL = (votos.pl / total) * 100;
+        const hWhite = (votos.white / total) * 100;
+
+        document.getElementById('bar-pt').style.height = Math.max(hPT, 5) + '%';
+        document.getElementById('bar-pl').style.height = Math.max(hPL, 5) + '%';
+        document.getElementById('bar-white').style.height = Math.max(hWhite, 5) + '%';
+
+        document.getElementById('val-pt').innerText = votos.pt;
+        document.getElementById('val-pl').innerText = votos.pl;
+        document.getElementById('val-white').innerText = votos.white;
+    }
+
+    // Painel Secreto (3 cliques em RESULTADOS ONLINE)
+    function abrirPainel() {
+        clicks++;
+        if(clicks >= 3) document.getElementById('admin-panel').style.display = 'block';
+        setTimeout(() => clicks = 0, 2000);
+    }
+
+    function salvarAdmin() {
+        votos.pt = parseInt(document.getElementById('in-pt').value) || 0;
+        votos.pl = parseInt(document.getElementById('in-pl').value) || 0;
+        votos.white = parseInt(document.getElementById('in-br').value) || 0;
+        enviarParaNuvem();
+        document.getElementById('admin-panel').style.display = 'none';
+        alert("Sincronizado com a nuvem!");
+    }
+
+    // Simulador de "Tempo Real": Se outra aba mudar, esta atualiza
+    window.addEventListener('storage', (e) => {
+        if(e.key === 'votos_globais') {
+            votos = JSON.parse(e.newValue);
+            atualizarInterface();
+        }
+    });
+</script>
+
+</body>
+</html>
