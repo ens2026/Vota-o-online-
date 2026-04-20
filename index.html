@@ -94,6 +94,77 @@
     const firebaseConfig = {
         databaseURL: "https://votacao-teste-ccb1b-default-rtdb.firebaseio.com/" 
     };
+    <script>
+    // 1. Configuração (Cole sua URL abaixo)
+    const firebaseConfig = {
+        databaseURL: "SUA_URL_AQUI" 
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    let votos = { pt: 0, pl: 0, white: 0 };
+    let clicks = 0;
+
+    // 2. Escutar a Nuvem (Atualiza o site sozinho quando alguém vota)
+    db.ref('votos').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+            votos = data;
+            atualizarInterface();
+        }
+    });
+
+    // 3. Processar voto após volta do Mercado Pago
+    window.onload = function() {
+        const pendente = localStorage.getItem('votoPendente');
+        if (pendente) {
+            // Incrementa na nuvem
+            db.ref('votos/' + pendente).transaction((valorAtual) => {
+                return (valorAtual || 0) + 1;
+            });
+            localStorage.removeItem('votoPendente');
+        }
+    };
+
+    function prepararVoto(opcao) {
+        localStorage.setItem('votoPendente', opcao);
+    }
+
+    function atualizarInterface() {
+        const total = votos.pt + votos.pl + votos.white;
+        if (total === 0) return;
+
+        const hPT = (votos.pt / total) * 100;
+        const hPL = (votos.pl / total) * 100;
+        const hWhite = (votos.white / total) * 100;
+
+        document.getElementById('bar-pt').style.height = Math.max(hPT, 5) + '%';
+        document.getElementById('bar-pl').style.height = Math.max(hPL, 5) + '%';
+        document.getElementById('bar-white').style.height = Math.max(hWhite, 5) + '%';
+
+        document.getElementById('val-pt').innerText = votos.pt;
+        document.getElementById('val-pl').innerText = votos.pl;
+        document.getElementById('val-white').innerText = votos.white;
+    }
+
+    // Painel Secreto
+    function abrirPainel() {
+        clicks++;
+        if(clicks >= 3) document.getElementById('admin-panel').style.display = 'block';
+        setTimeout(() => clicks = 0, 2000);
+    }
+
+    function salvarAdmin() {
+        const novosVotos = {
+            pt: parseInt(document.getElementById('in-pt').value) || 0,
+            pl: parseInt(document.getElementById('in-pl').value) || 0,
+            white: parseInt(document.getElementById('in-br').value) || 0
+        };
+        db.ref('votos').set(novosVotos); // Salva na nuvem para todo mundo
+        document.getElementById('admin-panel').style.display = 'none';
+    }
+</script>
+
     
     // Inicialização apenas ilustrativa (o código abaixo usa uma lógica que salva local mas simula a rede)
     // Para funcionar 100% online em todos os PCs, você cola o link do seu Firebase acima.
