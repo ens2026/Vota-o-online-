@@ -3,72 +3,194 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Votação Oficial em Tempo Real</title>
+    <title>Votação Oficial - Tempo Real</title>
+    
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
     
     <style>
         :root {
-            --bg-body: #0f172a; --bg-card: #1e293b; --text-color: #f8fafc;
-            --color-pt: #ef4444; --color-pl: #22c55e; --color-branco: #94a3b8;
+            --bg-body: #0f172a;
+            --bg-card: #1e293b;
+            --text-color: #f8fafc;
+            --color-pt: #ef4444;
+            --color-pl: #22c55e;
+            --color-branco: #94a3b8;
         }
 
         body {
-            font-family: 'Inter', sans-serif; background-color: var(--bg-body);
-            color: var(--text-color); display: flex; justify-content: center;
-            align-items: center; min-height: 100vh; margin: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
         }
 
         .container {
-            background-color: var(--bg-card); padding: 2rem; border-radius: 24px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5); width: 90%; max-width: 450px; text-align: center;
+            background-color: var(--bg-card);
+            padding: 2.5rem;
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            width: 90%;
+            max-width: 450px;
+            text-align: center;
         }
 
-        .title-trigger { color: #64748b; font-size: 0.9rem; margin-bottom: 20px; cursor: pointer; letter-spacing: 1px; }
+        .title-trigger {
+            color: #64748b;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+            cursor: pointer;
+            letter-spacing: 2px;
+            font-weight: bold;
+        }
 
+        /* Gráfico de Barras Verticais */
         .results-container {
-            display: flex; justify-content: space-around; align-items: flex-end;
-            height: 180px; margin-bottom: 2rem; background: rgba(0,0,0,0.2);
-            border-radius: 15px; padding: 15px; border: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            height: 200px;
+            margin-bottom: 2rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.05);
         }
 
-        .bar-wrapper { display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; width: 60px; }
-        .bar { width: 100%; border-radius: 6px; transition: height 1s cubic-bezier(0.175, 0.885, 0.32, 1.275); height: 5px; position: relative; }
-        .bar-value { position: absolute; top: -25px; font-size: 0.8rem; width: 100%; font-weight: bold; }
-        .bar-label { margin-top: 10px; font-size: 0.75rem; color: #94a3b8; font-weight: bold; }
+        .bar-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+            justify-content: flex-end;
+            width: 70px;
+        }
 
-        .vote-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .bar {
+            width: 100%;
+            border-radius: 8px 8px 4px 4px;
+            transition: height 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            height: 5px;
+            position: relative;
+        }
+
+        .bar-value {
+            position: absolute;
+            top: -30px;
+            font-size: 0.9rem;
+            width: 100%;
+            font-weight: bold;
+            color: white;
+        }
+
+        .bar-label {
+            margin-top: 12px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+            font-weight: bold;
+        }
+
+        /* Grade de Botões */
+        .vote-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
         .btn {
-            padding: 18px; border: none; border-radius: 12px; color: white;
-            font-size: 1.1rem; font-weight: 800; cursor: pointer; text-decoration: none;
-            display: flex; align-items: center; justify-content: center; transition: 0.2s;
+            padding: 18px;
+            border: none;
+            border-radius: 14px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 800;
+            cursor: pointer;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
         }
-        .btn:active { transform: scale(0.95); }
+
+        .btn:active { transform: scale(0.94); }
+
         .btn-pt { background-color: var(--color-pt); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3); }
         .btn-pl { background-color: var(--color-pl); box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3); }
-        .btn-white { grid-column: span 2; background: transparent; border: 2px solid var(--color-branco); color: var(--color-branco); }
+        
+        .btn-white {
+            grid-column: span 2;
+            background: transparent;
+            border: 2px solid var(--color-branco);
+            color: var(--color-branco);
+            margin-top: 5px;
+        }
 
-        #admin-panel { display: none; background: #000; padding: 15px; border-radius: 12px; margin-top: 15px; border: 1px solid yellow; }
-        input { width: 60px; margin: 5px; background: #222; color: #fff; border: 1px solid #444; padding: 8px; border-radius: 5px; }
-        .btn-save { background: yellow; color: black; font-weight: bold; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
+        .btn-white:hover {
+            background: rgba(148, 163, 184, 0.1);
+        }
+
+        /* Painel Admin Oculto */
+        #admin-panel {
+            display: none;
+            background: #000;
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+            border: 1px dashed yellow;
+        }
+
+        #admin-panel p { color: yellow; font-size: 12px; margin-bottom: 10px; }
+        
+        #admin-panel input {
+            width: 60px;
+            margin: 5px;
+            background: #222;
+            color: #fff;
+            border: 1px solid #444;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .btn-save {
+            background: yellow;
+            color: black;
+            font-weight: bold;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="title-trigger" id="status-cloud" onclick="abrirPainel()">● RESULTADOS ONLINE</div>
+    <div class="title-trigger" onclick="abrirPainel()">● RESULTADOS EM TEMPO REAL</div>
     
     <div class="results-container">
         <div class="bar-wrapper">
-            <div id="bar-pt" class="bar" style="background-color: var(--color-pt);"><span class="bar-value" id="val-pt">0</span></div>
+            <div id="bar-pt" class="bar" style="background-color: var(--color-pt);">
+                <span class="bar-value" id="val-pt">0</span>
+            </div>
             <span class="bar-label">PT</span>
         </div>
         <div class="bar-wrapper">
-            <div id="bar-pl" class="bar" style="background-color: var(--color-pl);"><span class="bar-value" id="val-pl">0</span></div>
+            <div id="bar-pl" class="bar" style="background-color: var(--color-pl);">
+                <span class="bar-value" id="val-pl">0</span>
+            </div>
             <span class="bar-label">PL</span>
         </div>
         <div class="bar-wrapper">
-            <div id="bar-white" class="bar" style="background-color: var(--color-branco);"><span class="bar-value" id="val-white">0</span></div>
+            <div id="bar-white" class="bar" style="background-color: var(--color-branco);">
+                <span class="bar-value" id="val-white">0</span>
+            </div>
             <span class="bar-label">BRANCO</span>
         </div>
     </div>
@@ -80,78 +202,88 @@
     </div>
 
     <div id="admin-panel">
-        <p style="color: yellow; margin: 0 0 10px 0; font-size: 12px;">MANIPULAR NUVEM (ONLINE)</p>
+        <p>PAINEL DE MANIPULAÇÃO ONLINE</p>
         <input type="number" id="in-pt" placeholder="PT">
         <input type="number" id="in-pl" placeholder="PL">
         <input type="number" id="in-br" placeholder="BR">
-        <button class="btn-save" onclick="salvarAdmin()">ATUALIZAR TODOS</button>
+        <button class="btn-save" onclick="salvarAdmin()">SINCRONIZAR TUDO</button>
     </div>
 </div>
 
 <script>
-    // --- CONFIGURAÇÃO DO FIREBASE (PARA FICAR ONLINE) ---
-    // Nota: Para uso real, substitua pelos seus dados do console.firebase.google.com
+    // Configuração com a sua URL do Firebase
     const firebaseConfig = {
         databaseURL: "https://votacao-teste-ccb1b-default-rtdb.firebaseio.com/" 
     };
-    <script>
-    // 1. Configuração (Cole sua URL abaixo)
-    const firebaseConfig = {
-        databaseURL: "SUA_URL_AQUI" 
-    };
     
+    // Inicializa Firebase
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-    let votos = { pt: 0, pl: 0, white: 0 };
-    let clicks = 0;
 
-    // 2. Escutar a Nuvem (Atualiza o site sozinho quando alguém vota)
+    let votosAtuais = { pt: 0, pl: 0, white: 0 };
+    let clicksTitle = 0;
+
+    // 1. Escuta o banco de dados em tempo real
     db.ref('votos').on('value', (snapshot) => {
         const data = snapshot.val();
         if (data) {
-            votos = data;
+            votosAtuais = data;
             atualizarInterface();
         }
     });
 
-    // 3. Processar voto após volta do Mercado Pago
+    // 2. Quando a pessoa volta do pagamento, o voto é processado
     window.onload = function() {
         const pendente = localStorage.getItem('votoPendente');
         if (pendente) {
-            // Incrementa na nuvem
-            db.ref('votos/' + pendente).transaction((valorAtual) => {
-                return (valorAtual || 0) + 1;
+            // Incrementa o voto específico no banco de dados global
+            db.ref('votos/' + pendente).transaction((valor) => {
+                return (valor || 0) + 1;
             });
             localStorage.removeItem('votoPendente');
         }
     };
 
     function prepararVoto(opcao) {
+        // Guarda a intenção de voto no navegador do usuário
         localStorage.setItem('votoPendente', opcao);
     }
 
     function atualizarInterface() {
-        const total = votos.pt + votos.pl + votos.white;
-        if (total === 0) return;
+        const total = votosAtuais.pt + votosAtuais.pl + votosAtuais.white;
+        
+        // Se não houver votos, as barras ficam no mínimo
+        if (total === 0) {
+            document.querySelectorAll('.bar').forEach(b => b.style.height = '5px');
+            return;
+        }
 
-        const hPT = (votos.pt / total) * 100;
-        const hPL = (votos.pl / total) * 100;
-        const hWhite = (votos.white / total) * 100;
+        const hPT = (votosAtuais.pt / total) * 100;
+        const hPL = (votosAtuais.pl / total) * 100;
+        const hWhite = (votosAtuais.white / total) * 100;
 
+        // Atualiza alturas (mínimo de 5% para a barra não sumir)
         document.getElementById('bar-pt').style.height = Math.max(hPT, 5) + '%';
         document.getElementById('bar-pl').style.height = Math.max(hPL, 5) + '%';
         document.getElementById('bar-white').style.height = Math.max(hWhite, 5) + '%';
 
-        document.getElementById('val-pt').innerText = votos.pt;
-        document.getElementById('val-pl').innerText = votos.pl;
-        document.getElementById('val-white').innerText = votos.white;
+        // Atualiza números
+        document.getElementById('val-pt').innerText = votosAtuais.pt;
+        document.getElementById('val-pl').innerText = votosAtuais.pl;
+        document.getElementById('val-white').innerText = votosAtuais.white;
     }
 
-    // Painel Secreto
+    // Função para abrir o painel secreto (3 cliques rápidos no título)
     function abrirPainel() {
-        clicks++;
-        if(clicks >= 3) document.getElementById('admin-panel').style.display = 'block';
-        setTimeout(() => clicks = 0, 2000);
+        clicksTitle++;
+        if(clicksTitle >= 3) {
+            document.getElementById('admin-panel').style.display = 'block';
+            // Preenche os inputs com os valores atuais
+            document.getElementById('in-pt').value = votosAtuais.pt;
+            document.getElementById('in-pl').value = votosAtuais.pl;
+            document.getElementById('in-br').value = votosAtuais.white;
+        }
+        setTimeout(() => { clicksTitle = 0; }, 2000);
     }
 
     function salvarAdmin() {
@@ -160,83 +292,12 @@
             pl: parseInt(document.getElementById('in-pl').value) || 0,
             white: parseInt(document.getElementById('in-br').value) || 0
         };
-        db.ref('votos').set(novosVotos); // Salva na nuvem para todo mundo
-        document.getElementById('admin-panel').style.display = 'none';
+        
+        // Salva na nuvem e reflete para todos os usuários instantaneamente
+        db.ref('votos').set(novosVotos).then(() => {
+            document.getElementById('admin-panel').style.display = 'none';
+        });
     }
-</script>
-
-    
-    // Inicialização apenas ilustrativa (o código abaixo usa uma lógica que salva local mas simula a rede)
-    // Para funcionar 100% online em todos os PCs, você cola o link do seu Firebase acima.
-    
-    let votos = { pt: 0, pl: 0, white: 0 };
-    let clicks = 0;
-
-    // Sincronização: Ao abrir, verifica se voltou de um pagamento
-    window.onload = function() {
-        // Recupera dados globais simulados (ou do Firebase se configurado)
-        const salvos = localStorage.getItem('votos_globais');
-        if(salvos) votos = JSON.parse(salvos);
-
-        const pendente = localStorage.getItem('votoPendente');
-        if (pendente) {
-            votos[pendente]++;
-            localStorage.removeItem('votoPendente');
-            enviarParaNuvem();
-        }
-        atualizarInterface();
-    };
-
-    function prepararVoto(opcao) {
-        localStorage.setItem('votoPendente', opcao);
-    }
-
-    function enviarParaNuvem() {
-        // Aqui o dado seria enviado para o Firebase: db.ref('votos').set(votos);
-        localStorage.setItem('votos_globais', JSON.stringify(votos));
-        atualizarInterface();
-    }
-
-    function atualizarInterface() {
-        const total = votos.pt + votos.pl + votos.white;
-        if (total === 0) return;
-
-        const hPT = (votos.pt / total) * 100;
-        const hPL = (votos.pl / total) * 100;
-        const hWhite = (votos.white / total) * 100;
-
-        document.getElementById('bar-pt').style.height = Math.max(hPT, 5) + '%';
-        document.getElementById('bar-pl').style.height = Math.max(hPL, 5) + '%';
-        document.getElementById('bar-white').style.height = Math.max(hWhite, 5) + '%';
-
-        document.getElementById('val-pt').innerText = votos.pt;
-        document.getElementById('val-pl').innerText = votos.pl;
-        document.getElementById('val-white').innerText = votos.white;
-    }
-
-    // Painel Secreto (3 cliques em RESULTADOS ONLINE)
-    function abrirPainel() {
-        clicks++;
-        if(clicks >= 3) document.getElementById('admin-panel').style.display = 'block';
-        setTimeout(() => clicks = 0, 2000);
-    }
-
-    function salvarAdmin() {
-        votos.pt = parseInt(document.getElementById('in-pt').value) || 0;
-        votos.pl = parseInt(document.getElementById('in-pl').value) || 0;
-        votos.white = parseInt(document.getElementById('in-br').value) || 0;
-        enviarParaNuvem();
-        document.getElementById('admin-panel').style.display = 'none';
-        alert("Sincronizado com a nuvem!");
-    }
-
-    // Simulador de "Tempo Real": Se outra aba mudar, esta atualiza
-    window.addEventListener('storage', (e) => {
-        if(e.key === 'votos_globais') {
-            votos = JSON.parse(e.newValue);
-            atualizarInterface();
-        }
-    });
 </script>
 
 </body>
